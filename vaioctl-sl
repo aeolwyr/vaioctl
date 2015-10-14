@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+#
+# Easily control the VAIO laptop specific features.
+# Kaan Karaagacli
+#
+readonly vaio_path="/sys/devices/platform/sony-laptop"
+
+usage ()
+{
+	echo "Usage: $(basename $0) COMMAND [ARGUMENT]"
+	echo "Configure this VAIO laptop."
+	echo "Currently these commands are supported:"
+	echo ""
+	echo "    battery [50|80|100]"
+	echo "        show the current battery charge limit"
+	echo "        or sets the battery charge limit to"
+	echo "        the given argument"
+	echo ""
+	echo "    fan"
+	echo "        start the fan clean-up process"
+	echo ""
+	echo "    kbd_backlight [0|1|2]"
+	echo "        show the keyboard backlight status"
+	echo "        or sets it to disabled/automatic/enabled"
+	echo "        if the argument is provided"
+	echo ""
+	echo "    touchpad [0|1|t]"
+	echo "        show the touchpad status"
+	echo "        or disable/enable/toggle the touchpad"
+	echo "        if the argument is provided"
+	echo ""
+	echo "    usb_charge [0|1|t]"
+	echo "        show the usb charge status"
+	echo "        or disable/enable/toggle the usb charge"
+	echo "        if the argument is provided"
+	echo ""
+	echo "The command names can be truncated up to one letter."
+	echo "Most of these functions require this script to be run as root."
+}
+
+# Toggle or print a given file.
+# argument 1 - file path to manipulate or print
+# argument 2 - if "0" or "1", sets the file contents to it
+#              if "t", toggles it between 0 and 1
+#              else prints the contents of the file
+toggle ()
+{
+	if [[ $2 == "0" ]]
+	then
+		echo 0 >> $1
+	elif [[ $2 == "1" ]]
+	then
+		echo 1 >> $1
+	elif [[ ${2:0:1} == "t" ]]
+	then
+		local status=$(cat $1)
+		# use modulo to get 1 from 0 and vice versa
+		echo $(( (status + 1) % 2 )) >> $1
+	else
+		cat $1
+	fi
+}
+
+# only the first letter is important
+case "${1:0:1}" in
+	"b")
+		# battery care
+		full_path=$vaio_path/battery_care_limiter
+		if [[ $2 == "100" ]]; then
+			# turn off battery care
+			echo 0 >> $full_path
+		elif [[ -n $2 ]]; then
+			echo $2 >> $full_path
+		else
+			cat $full_path
+		fi;;
+	"k")
+		full_path=$vaio_path/kbd_backlight
+		if [[ -n $2 ]]; then
+			echo $2 >> $full_path
+		else
+			cat $full_path
+		fi;;
+	"f")
+		# fan forced
+		full_path=$vaio_path/fan_forced
+		echo 1 >> $full_path;;
+	"t")
+		# touchpad
+		full_path=$vaio_path/touchpad
+		toggle "$full_path" "$2";;
+	"u")
+		# usb charge
+		full_path=$vaio_path/usb_charge
+		toggle "$full_path" "$2";;
+	*)
+		usage;;
+esac

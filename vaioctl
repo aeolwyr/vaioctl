@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+#
+# Easily control the VAIO laptop specific features.
+# Kaan Karaagacli
+#
+readonly ec_path="/sys/kernel/debug/ec/ec0/io"
+
+usage ()
+{
+	echo "Usage: $(basename $0) COMMAND [ARGUMENT]"
+	echo "Configure this VAIO laptop."
+	echo "Currently these commands are supported:"
+	echo ""
+	echo "    battery [off|80|50]"
+	echo "        show the current battery charge limit"
+	echo "        or sets the battery charge limit to"
+	echo "        the given argument"
+	echo ""
+	echo "    fan [max]"
+	echo "        show the current fan speed"
+	echo "        (with a scale between 0 and 100)"
+	echo "        or set it to maximum (i.e. start"
+	echo "        up the fan clean up process) if the argument"
+	echo "        is provided"
+	echo ""
+	echo "    kbd_backlight [off|auto|on]"
+	echo "        show the keyboard backlight status"
+	echo "        or set it to disabled/automatic/enabled"
+	echo "        if the argument is provided"
+	echo ""
+	echo "    touchpad [off|on]"
+	echo "        show the touchpad status"
+	echo "        or disable/enable the touchpad"
+	echo "        if the argument is provided"
+	echo ""
+	echo "    usb_charge [off|on]"
+	echo "        show the usb charge status"
+	echo "        or disable/enable the usb charge"
+	echo "        if the argument is provided"
+	echo ""
+	echo "The command names can be truncated up to one letter."
+	echo "This scripts needs root privileges."
+}
+
+# Read a byte from the embedded controller.
+# argument 1 - location to read, in decimal
+# argument 2 - optional, the output format
+#              use x for hexadecimal (default)
+#              or d for decimal
+read_ec_byte ()
+{
+	local format=${2:-x}
+	echo $(od -An -j "$1" -N1 -t${format}1 "$ec_path")
+}
+
+# Write a byte to the embedded controller.
+# argument 1 - location to write, in decimal
+# argument 2 - value to write
+write_ec_byte ()
+{
+	# Adapted from the answer given by kubuzetto at stackoverflow
+	# http://stackoverflow.com/q/29440784/
+	echo -n -e "\x$2" | dd of="$ec_path" bs=1 count=1 seek="$1" \
+				conv=notrunc status=none
+}
+
+# Control the battery care function
+# argument 1 - value to set, either "off", "80", "50"
+#              or keep it empty to return the current value
+battery_care ()
+{
+	case "$1" in
+		"")
+			case "$(read_ec_byte 229)" in
+				"00") echo "off" ;;
+				"01") echo "80" ;;
+				"02") echo "50" ;;
+			esac ;;
+		"off")
+			write_ec_byte 229 00 ;;
+		"80")
+			write_ec_byte 229 01 ;;
+		"50")
+			write_ec_byte 229 02 ;;
+		*)
+			echo "Invalid battery percentage." >&2 
+			echo "Available options: off | 80 | 50 " >&2 ;;
+	esac
+}
+
+# Control the fan
+# argument 1 - "max" to set it to maximum
+#              or keep it empty to return the current speed
+fanspeed ()
+{
+	case "$1" in
+		"")
+			echo $(( $(read_ec_byte 223 d) * 100 / 54 )) ;;
+		"max")
+			# this value is reset by the system after 1 second
+			write_ec_byte 196 10 ;;
+		*)
+			echo "Invalid fan speed." >&2
+			echo "Available option: max " >&2 ;;
+	esac
+}
+
+# Control the keyboard backlight function
+# argument 1 - value to set, either "off", "auto", "on"
+#              or keep it empty to return the current value
+kbd_backlight ()
+{
+	case "$1" in
+		"")
+			case "$(read_ec_byte 236)" in
+				"00") echo "off" ;;
+				"01") echo "auto" ;;
+				"02") echo "on" ;;
+			esac ;;
+		"off")
+			write_ec_byte 236 00 ;;
+		"auto")
+			write_ec_byte 236 01 ;;
+		"on")
+			write_ec_byte 236 02 ;;
+		*)
+			echo "Invalid keyboard backlight mode." >&2
+			echo "Available options: off | auto | on" >&2 ;;
+	esac
+}
+
+# Control the touchpad function
+# argument 1 - value to set, either "off", "on"
+#              or keep it empty to return the current value
+touchpad ()
+{
+	case "$1" in
+		"")
+			case "$(read_ec_byte 212)" in
+				"21") echo "off" ;;
+				"01") echo "on" ;;
+			esac ;;
+		"off")
+			write_ec_byte 212 21 ;;
+		"on")
+			write_ec_byte 212 01 ;;
+		*)
+			echo "Invalid touchpad mode." >&2
+			echo "Available options: off | on " >&2 ;;
+	esac
+}
+
+# Control the USB charge function (usb power when laptop is turned off)
+# argument 1 - value to set, either "off", "80" or "50"
+#              or keep it empty to return the current value
+usb_charge ()
+{
+	case "$1" in
+		"")
+			case "$(read_ec_byte 250)" in
+				"24") echo "off" ;;
+				"25") echo "on" ;;
+			esac ;;
+		"off")
+			write_ec_byte 250 24 ;;
+		"on")
+			write_ec_byte 250 25 ;;
+		*)
+			echo "Invalid USB charge mode." >&2
+			echo "Available options: off | on" >&2 ;;
+	esac
+}
+
+# print help if no command is provided
+if [[ -z $1 ]]; then
+	usage
+	exit
+fi
+
+# ec_sys module is needed for this script
+lsmod | grep -q ec_sys
+need_mod=$?
+
+# enable the module if needed
+if ((need_mod)); then
+	modprobe ec_sys write_support=1 || exit
+fi
+
+# call the appropriate function depending on the command
+case "${1:0:1}" in
+	"b") battery_care "$2" ;;
+	"f") fanspeed "$2" ;;
+	"k") kbd_backlight "$2" ;;
+	"t") touchpad "$2" ;;
+	"u") usb_charge "$2" ;;
+	*) usage ;;
+esac
+
+# remove the module if it was enabled by this script
+if ((need_mod)); then
+	modprobe -r ec_sys
+fi
