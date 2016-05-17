@@ -39,7 +39,7 @@ usage ()
 	echo "        if the argument is provided"
 	echo ""
 	echo "The command names can be truncated up to one letter."
-	echo "This scripts needs root privileges."
+	echo "This script needs root privileges."
 }
 
 # Read a byte from the embedded controller.

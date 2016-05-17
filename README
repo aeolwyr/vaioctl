@@ -4,7 +4,7 @@ vaioctl
 
 Control the VAIO laptop specific features.
 Tested on a SVF15 (Fit 15) series laptop, it will probably
-fail on the other models.
+fail on other models.
 
 Run the script without arguments for more information.
 
@@ -34,35 +34,35 @@ sony_laptop can read the values as a normal user.
 
 Available registers in the EC
 =============================
-E5 (229) - Battery care
+0xE5 (229) - Battery care
 00 - off
 01 - 80%
 02 - 50%
 
-EC (236) - Keyboard backlight
+0xEC (236) - Keyboard backlight
 00 - off
 01 - auto
 02 - on
 
-C4 (196) - Fan forced
+0xC4 (196) - Fan forced
 00 - off
 01 - on
 
-D4 (212) - Touchpad
+0xD4 (212) - Touchpad
 21 - off
 01 - on
 
-DD (221) - Radio status (not used in this project)
+0xDD (221) - Radio status (not used in this project)
 30 - all off
 31 - wifi on
 32 - bluetooth on
 33 - all on
 
-DF (223) - Fan speed
-Varies depending the fan speed
+0xDF (223) - Fan speed
+Varies depending on the fan speed
 00 - off
 36 - max
 
-FA (250) - USB charge (when laptop is turned off)
+0xFA (250) - USB charge (when laptop is turned off)
 24 - off
 25 - on
