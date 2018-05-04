@@ -179,12 +179,10 @@ fi
 
 # ec_sys module is needed for this script
 lsmod | grep -q ec_sys
-need_mod=$?
 
-# enable the module if needed
-if ((need_mod)); then
-	modprobe ec_sys write_support=1 || exit
-fi
+# remember the value of write_support to restore later
+original_value=$(cat /sys/module/ec_sys/parameters/write_support)
+echo Y > /sys/module/ec_sys/parameters/write_support
 
 # call the appropriate function depending on the command
 case "${1:0:1}" in
@@ -196,7 +194,5 @@ case "${1:0:1}" in
 	*) usage ;;
 esac
 
-# remove the module if it was enabled by this script
-if ((need_mod)); then
-	modprobe -r ec_sys
-fi
+# restore the write_support parameter
+echo "$original_value" > /sys/module/ec_sys/parameters/write_support
